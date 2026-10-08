@@ -154,6 +154,10 @@ ENV DASHBOARD_ALLOW_EMBED=$DASHBOARD_ALLOW_EMBED
 # access), so keep @/mitm/manager on the graceful stub (#3390). This flag is
 # Docker-only: npm/Electron/VPS builds must bundle the REAL manager (#6344).
 ENV OMNIROUTE_MITM_STUB=1
+# Railway builders are memory constrained; the minimal profile keeps the
+# OpenAI-compatible gateway/routing surface while excluding optional privileged
+# modules that are not needed for QuantumBet resource routing.
+ENV OMNIROUTE_BUILD_PROFILE=minimal
 
 # Raise the V8 heap ceiling for the build. The webpack production optimization
 # pass needs more than V8's default ceiling (~2 GB) for a codebase this size; a
@@ -198,7 +202,7 @@ ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 # the measured figure and fails if either knob is raised past what a 16 GB
 # runner holds. Override for a big builder: `--build-arg
 # OMNIROUTE_BUILD_WORKERS=8`.
-ARG OMNIROUTE_BUILD_WORKERS=2
+ARG OMNIROUTE_BUILD_WORKERS=1
 ENV CIRCLE_NODE_TOTAL=${OMNIROUTE_BUILD_WORKERS}
 
 COPY . ./
