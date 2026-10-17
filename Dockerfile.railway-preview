@@ -1,0 +1,17 @@
+# Preview-only wrapper around the upstream release-branch image.
+# No application rebuild is required; this adds writable persistent-volume ownership
+# handling while keeping the application process non-root.
+FROM diegosouzapw/omniroute:next
+
+USER root
+COPY railway-volume-entrypoint.sh /app/railway-volume-entrypoint.sh
+RUN chmod 0755 /app/railway-volume-entrypoint.sh
+
+ENV PORT=20128
+ENV HOSTNAME=0.0.0.0
+ENV DATA_DIR=/app/data
+ENV HOME=/home/node
+
+EXPOSE 20128
+ENTRYPOINT ["/app/railway-volume-entrypoint.sh"]
+CMD ["node", "dev/run-standalone.mjs"]
