@@ -1,0 +1,42 @@
+name: Keep OmniRoute fork synced with upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+  push:
+    branches:
+      - release/v3.8.52
+    paths:
+      - .github/workflows/sync-upstream.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: omniroute-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Merge upstream default branch into this fork's default branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = "release/v3.8.52";
+            core.info(`Requesting GitHub's safe merge-upstream for ${owner}/${repo} branch ${branch}.`);
+            const response = await github.request(
+              "POST /repos/{owner}/{repo}/merge-upstream",
+              { owner, repo, branch }
+            );
+            core.info(JSON.stringify(response.data));
+            if (!response.data || response.data.message === "Conflict") {
+              core.setFailed("GitHub did not complete the upstream sync; inspect the response before retrying.");
+            } else {
+              core.info("Upstream sync request completed. Verify the branch head and workflow result.");
+            }
