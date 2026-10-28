@@ -22,21 +22,56 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Merge upstream default branch into this fork's default branch
+      - name: Mirror upstream release/v3.8.53 into this fork
         uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const branch = "release/v3.8.52";
-            core.info(`Requesting GitHub's safe merge-upstream for ${owner}/${repo} branch ${branch}.`);
-            const response = await github.request(
-              "POST /repos/{owner}/{repo}/merge-upstream",
-              { owner, repo, branch }
-            );
-            core.info(JSON.stringify(response.data));
-            if (!response.data || response.data.message === "Conflict") {
-              core.setFailed("GitHub did not complete the upstream sync; inspect the response before retrying.");
+            const upstreamOwner = "cheaper-inference";
+            const upstreamRepo = "OmniRoute";
+            const upstreamBranch = "release/v3.8.53";
+            const mirrorBranch = "release/v3.8.53";
+
+            const source = await github.rest.repos.getBranch({
+              owner: upstreamOwner,
+              repo: upstreamRepo,
+              branch: upstreamBranch
+            });
+            const sourceSha = source.data.commit.sha;
+
+            let targetSha = null;
+            try {
+              const target = await github.rest.git.getRef({
+                owner,
+                repo,
+                ref: `heads/${mirrorBranch}`
+              });
+              targetSha = target.data.object.sha;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+
+            if (targetSha === sourceSha) {
+              core.info(`Mirror already current at ${sourceSha}.`);
+              return;
+            }
+
+            if (targetSha) {
+              await github.rest.git.updateRef({
+                owner,
+                repo,
+                ref: `heads/${mirrorBranch}`,
+                sha: sourceSha,
+                force: true
+              });
+              core.info(`Updated dedicated mirror branch ${mirrorBranch}: ${targetSha} -> ${sourceSha}.`);
             } else {
-              core.info("Upstream sync request completed. Verify the branch head and workflow result.");
+              await github.rest.git.createRef({
+                owner,
+                repo,
+                ref: `refs/heads/${mirrorBranch}`,
+                sha: sourceSha
+              });
+              core.info(`Created mirror branch ${mirrorBranch} at ${sourceSha}.`);
             }
